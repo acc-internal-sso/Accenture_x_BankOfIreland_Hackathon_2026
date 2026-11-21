@@ -844,6 +844,11 @@ select.chip option { background: #150b2c; color: #f3eefc; }
 .sd-win .wt span { font-size: clamp(14px, 1.4vw, 21px); color: #e6def7; line-height: 1.5; }
 @media (max-width: 1180px) { .sd2 { grid-template-columns: 1fr; } .sdb { width: min(90vw, 60vh, 640px); } }
 
+/* copyright, bottom-right of every page */
+#copy { position: fixed; z-index: 60; right: 14px; bottom: 7px; font-family: "Manrope", "Segoe UI", Arial, sans-serif; font-weight: 400; font-size: 11.5px; letter-spacing: .01em; color: rgba(255, 255, 255, .62); pointer-events: none; user-select: none; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+@media (max-width: 600px) { #copy { font-size: 10px; right: 10px; bottom: 5px; } }
+@media (min-width: 1900px) { #copy { font-size: 13px; } }
+
 </style>
 </head>
 <body>
@@ -870,6 +875,7 @@ select.chip option { background: #150b2c; color: #f3eefc; }
 <div class="keys"><kbd>F</kbd><span>Toggle fullscreen</span><kbd>M</kbd><span>Sound on / off</span><kbd>Esc</kbd><span>Close a panel, or leave Grandmaster Mode</span><kbd>← →</kbd><span>Previous / next idea or revealed team</span><kbd>Space</kbd><span>Play the next reveal: skip intro, replay the tour, next SDLC move, spin the wheel</span><kbd>S</kbd><span>Spotlight mode inside a showcase</span><kbd>R</kbd><span>Random idea</span><kbd>G</kbd><span>Grandmaster Mode</span><kbd>P</kbd><span>Presentation mode (hide the toolbar)</span><kbd>?</kbd><span>This list</span></div></div></div>
 <div id="granted" aria-live="polite"><div class="g-in"><div class="row"><svg style="--i:0" viewBox="0 0 100 120"><use href="#p-pawn"/></svg><svg style="--i:1" viewBox="0 0 100 120"><use href="#p-knight"/></svg><svg style="--i:2" viewBox="0 0 100 120"><use href="#p-bishop"/></svg><svg style="--i:3" viewBox="0 0 100 120"><use href="#p-rook"/></svg><svg style="--i:4" viewBox="0 0 100 120"><use href="#p-queen"/></svg><svg style="--i:5" viewBox="0 0 100 120"><use href="#p-king"/></svg></div><h2 class="gold-t">WELCOME TO ARENA</h2></div></div>
 <div id="wipe" aria-hidden="true"></div>
+<div id="copy">Copyright © 2026 Accenture. All rights reserved.</div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="boot" role="dialog" aria-label="Choose sound"></div>
 <noscript><p style="position:fixed;inset:0;display:grid;place-items:center;color:#fff;background:#050309">This experience needs JavaScript.</p></noscript>
@@ -2085,12 +2091,12 @@ const Builders = (() => {
         if (my !== tok) throw 0;
         const i = order[k], c = i % 8, r = Math.floor(i / 8), s = sqs[i];
         s.classList.add("in", "flash"); pts.push(cen(c, r).join(",")); path.setAttribute("points", pts.join(" "));
-        horse.style.transitionDuration = "90ms"; horse.style.left = c * 12.5 + 1.5 + "%"; horse.style.top = r * 12.5 + 1.5 + "%";
+        horse.style.transitionDuration = "115ms"; horse.style.left = c * 12.5 + 1.5 + "%"; horse.style.top = r * 12.5 + 1.5 + "%";
         $("#tkN").textContent = k + 1; $("#tkT").textContent = `Move ${k + 1} of 64`; $("#tkP").style.width = (k + 1) / 64 * 100 + "%";
         if (k % 3 === 0) Sound.sfx("move");
-        await wait(my, k < 8 ? 150 : 88);
+        await wait(my, k < 8 ? 175 : 118);
       }
-      horse.style.opacity = 0; path.style.transition = "opacity .9s"; path.style.opacity = 0; await wait(my, 1000);
+      horse.style.opacity = 0; path.style.transition = "opacity .9s"; path.style.opacity = 0; await wait(my, 2000);   // two-second pause with every face showing
       // team by team
       $("#tkP").style.width = "0%";
       const teams = [...IDEAS].sort((a, b) => a.team - b.team);
