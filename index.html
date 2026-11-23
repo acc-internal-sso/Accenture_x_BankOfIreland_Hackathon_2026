@@ -1046,6 +1046,8 @@ const CONFIG = {
 
   /* Pitch sessions for the live draw: the wheel shows every team, but each session only lands on its own. */
   pitchSessions: [[1, 2, 3, 4], [5, 6, 7]],
+  /* The team that always comes up first in each session (null = fully random). Session 1 opens with Gambit Master. */
+  pitchFirst: [1, null],
 
   /* People / Skills / Capacity enablers (PPT slide 3) */
   enablers: [
@@ -2427,6 +2429,7 @@ const Draw = (() => {
   }
   const next = () => {
     const left = S().filter(t => !D.drawn.includes(t)); if (!left.length) return null;
+    const first = (CONFIG.pitchFirst || [])[D.session]; if (first && left.includes(first)) return first;   // Session 1 always opens with Gambit Master
     return left[Math.floor(Math.random() * left.length)];
   };
   function spin(target) {
@@ -2476,7 +2479,7 @@ const Draw = (() => {
     $("#agX").onclick = () => g.classList.remove("open"); $("#agRe").onclick = () => { g.classList.remove("open"); replay(); };
     $$(".card", g).forEach(b => b.onclick = () => Showcase.open(+b.dataset.t, { draw: true, list: [...L], rail: S() }));
   }
-  function replay() { if (D.phase === "spinning") return; D.drawn = D.drawn.filter(t => !S().includes(t)); D.phase = "idle"; D.pending = null; D.hl = null; draw(); ui(); Sound.sfx("whoosh"); toast(`Session ${D.session + 1} reset. Spin to begin.`); }
+  function replay() { if (D.phase === "spinning") return; D.drawn = D.drawn.filter(t => !S().includes(t)); D.phase = "idle"; D.pending = null; D.hl = null; draw(); ui(); Sound.sfx("whoosh"); toast(`Session ${D.session + 1} reset. Spin to begin.`); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
   function setSession(i) {
     if (D.phase !== "idle") { toast("Finish this spin first, then switch session."); return; }
     if (i === D.session) return; D.session = i; D.hl = null; draw(); ui(); Sound.sfx("select");
