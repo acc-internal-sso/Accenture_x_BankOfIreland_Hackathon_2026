@@ -1926,7 +1926,7 @@ const Builders = (() => {
         <div class="tour-ticker" aria-live="off"><b id="tkN">0</b><span id="tkT">Press replay to begin</span></div>
         <div class="prog"><i id="tkP"></i></div>
         <div class="ctl"><div class="seg" role="group" aria-label="Board view"><button id="vPh" class="on" aria-pressed="true">Photos</button><button id="vBd" aria-pressed="false">Chessboard</button></div>
-          <button class="btn sm solid" id="replay">${ico("play").replace("<svg", "<svg width=14 height=14 fill=currentColor")} <span id="replayL">Play</span></button><button class="btn sm ghost" id="skipT">Skip to end</button></div>
+          <button class="btn sm solid" id="replay">${ico("play").replace("<svg", "<svg width=14 height=14 fill=currentColor")} <span id="replayL">Replay</span></button><button class="btn sm ghost" id="skipT">Skip to end</button></div>
         <div class="srch"><svg viewBox="0 0 24 24">${ICON.search}</svg><input id="bq" type="search" placeholder="Find a builder" aria-label="Find a builder" autocomplete="off"></div>
         <div class="checkmate" id="chk">DELIVERY CHECKMATE · ALL 64 IN</div>
       </div>
@@ -1944,8 +1944,6 @@ const Builders = (() => {
     fill();
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "tour-svg"); svg.setAttribute("viewBox", "0 0 800 800"); svg.innerHTML = `<polyline id="tpath" points=""/><polyline id="lpath" points=""/>`; bd.appendChild(svg);
     bd.appendChild(html(`<div class="horse">${pc("knight")}</div>`));
-    bd.appendChild(html(`<button class="playbig" id="playBig" aria-label="Play the Knight’s Tour">${ico("play").replace("<svg", "<svg width=34 height=34 fill=currentColor")}<span>Play</span></button>`));
-    $("#playBig").onclick = () => run();
     toIdle();
     $("#replay").onclick = () => run(); $("#skipT").onclick = () => run(true);
     $("#vPh").onclick = () => setView("photos"); $("#vBd").onclick = () => setView("chess");
@@ -1958,7 +1956,7 @@ const Builders = (() => {
     bd.classList.remove("done", "focus", "photos", "chess"); bd.classList.add("idle");
     $$(".sq").forEach(s => s.classList.remove("in", "flash", "tm", "hit", "sdim"));
     $("#tpath").setAttribute("points", ""); $("#lpath").setAttribute("points", ""); $("#bcap").classList.remove("on"); $(".horse").style.opacity = 0;
-    $("#chk").classList.remove("on"); $("#tkN").textContent = "0"; $("#tkT").textContent = "Press Play to begin"; $("#tkP").style.width = "0%"; $("#replayL").textContent = "Play";
+    $("#chk").classList.remove("on"); $("#tkN").textContent = "0"; $("#tkT").textContent = "Starting…"; $("#tkP").style.width = "0%"; $("#replayL").textContent = "Replay";
     $("#vPh").classList.add("on"); $("#vBd").classList.remove("on");
   }
   function setView(v) {
@@ -2048,7 +2046,10 @@ const Builders = (() => {
       finalState(); Sound.sfx("success");
     } catch (e) { /* interrupted by replay or leaving the page */ }
   }
-  function enter() { /* no auto-start: the visitor presses Play */ }
+  function enter() {   // starts by itself when the page opens (unless the sequence has already been completed)
+    if (state === "done") return;
+    setTimeout(() => { if (curRoute === "builders" && state === "idle") run(); }, 450);
+  }
   return { mount, enter, leave() { if (state === "running") toIdle(); else { tok++; Sound.stopClip(0.6); } }, replay: () => run(), skip: () => run(true), tiles: () => ({ ...tileOf }) };
 })();
 registerView("builders", Builders);
