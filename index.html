@@ -853,6 +853,15 @@ select.chip option { background: #150b2c; color: #f3eefc; }
 
 .wall-head h1 span { font-style: normal; }
 
+/* pitch sessions */
+.sess { display: grid; gap: 8px; margin-top: 4px; }
+.sess .sl { font-size: 12.5px; color: var(--mute); font-weight: 700; letter-spacing: .02em; }
+.sess-teams { font-size: 13px; color: var(--mute); line-height: 1.5; max-width: 54ch; }
+.sess .seg button:disabled { opacity: .45; cursor: default; }
+.sess .seg button.nudge { animation: nudge 1.3s ease-in-out infinite; color: var(--gold-l); }
+@keyframes nudge { 50% { box-shadow: 0 0 0 4px rgba(227, 185, 95, .28); } }
+.dot.off:not(.done) { opacity: .3; }
+
 </style>
 </head>
 <body>
@@ -1034,6 +1043,9 @@ const CONFIG = {
 
   /* PPT live-draw order (slides 4–25): teams revealed in this sequence */
   drawOrder: [6, 3, 2, 5, 10, 1, 4, 7, 9, 8],
+
+  /* Pitch sessions for the live draw: the wheel shows every team, but each session only lands on its own. */
+  pitchSessions: [[1, 2, 3, 4], [5, 6, 7]],
 
   /* People / Skills / Capacity enablers (PPT slide 3) */
   enablers: [
@@ -1876,7 +1888,7 @@ registerView("arena", Hub);
    ========================================================================== */
 const Showcase = (() => {
   const root = $("#showcase");
-  let team = null, list = null, drawMode = false, spot = false, spotT = null, built = false;
+  let team = null, list = null, railList = null, drawMode = false, spot = false, spotT = null, built = false;
   const ALL = () => IDEAS.map(i => i.team);
   const arr = () => list && list.length ? list : ALL();
 
@@ -1910,7 +1922,7 @@ const Showcase = (() => {
     const a = arr(), n = a.length, i = a.indexOf(t);
     $(".cnt", root).innerHTML = it.support ? `<b>★</b> ${it.team === 12 ? "Behind the board" : "Leading the way"}` : `<b>${pad(i + 1)}</b> / ${pad(n)}${drawMode ? " revealed" : ""}`;
     const rail = $(".sc-rail", root);
-    rail.innerHTML = ALL().filter(tn => !drawMode || !byTeam(tn).enabler).map(tn => { const x = byTeam(tn), ok = !drawMode || a.includes(tn); return `<button role="tab" aria-selected="${tn === t}" class="${tn === t ? "on" : ""}" style="--rc:${x.color};${ok ? "" : "opacity:.15;pointer-events:none"}" data-t="${tn}" aria-label="${x.name}" title="${x.name}">${pc(x.piece, "currentColor")}</button>`; }).join("");
+    rail.innerHTML = (railList || ALL().filter(tn => !drawMode || !byTeam(tn).enabler)).map(tn => { const x = byTeam(tn), ok = !drawMode || a.includes(tn); return `<button role="tab" aria-selected="${tn === t}" class="${tn === t ? "on" : ""}" style="--rc:${x.color};${ok ? "" : "opacity:.15;pointer-events:none"}" data-t="${tn}" aria-label="${x.name}" title="${x.name}">${pc(x.piece, "currentColor")}</button>`; }).join("");
     $$("button", rail).forEach(b => b.onclick = () => { const to = +b.dataset.t; go2(to, to > team ? 1 : -1); });
     rail.style.display = it.support ? "none" : "";
     const lone = a.length < 2; $("#scL").style.display = $("#scR").style.display = lone ? "none" : "";
@@ -1921,7 +1933,7 @@ const Showcase = (() => {
   function step(d) { const a = arr(), i = a.indexOf(team); go2(a[(i + d + a.length) % a.length], d); }
   function open(t, o = {}) {
     if (!built) build(); closeModals();
-    list = o.list || null; drawMode = !!o.draw; spot = false; root.classList.remove("spot");
+    list = o.list || null; railList = o.rail || null; drawMode = !!o.draw; spot = false; root.classList.remove("spot");
     const ox = o.origin ? o.origin.x : innerWidth / 2, oy = o.origin ? o.origin.y : innerHeight * .6;
     root.style.setProperty("--ox", ox + "px"); root.style.setProperty("--oy", oy + "px");
     root.classList.add("open"); if (!REDUCE && !o.boardReveal) { root.classList.add("opening"); setTimeout(() => root.classList.remove("opening"), 950); }
@@ -2364,9 +2376,12 @@ registerView("beyond", Beyond);
    TEAM SHOWCASE — live chess-wheel draw
    ========================================================================== */
 const Draw = (() => {
-  const D = { drawn: [], phase: "idle", pending: null, mode: "tournament", angle: 0, hl: null };
+  const D = { drawn: [], phase: "idle", pending: null, session: 0, angle: 0, hl: null };
   const TEAMS = IDEAS.filter(t => !t.enabler);   // the pitching teams: the three enablers are not part of the draw
   const N = TEAMS.length, SLOT = 360 / N, TAU = Math.PI * 2;
+  const SESSIONS = CONFIG.pitchSessions.map(s => s.filter(t => TEAMS.some(x => x.team === t)));
+  const S = () => SESSIONS[D.session], sd = () => D.drawn.filter(t => S().includes(t)), sdone = () => sd().length === S().length;
+  const sessionOf = t => Math.max(0, SESSIONS.findIndex(s => s.includes(t))), drawnIn = si => D.drawn.filter(t => SESSIONS[si].includes(t));
   let cv, cx, mounted = false, lastSlot = 0, hlT = 0;
   const lum = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return (.299 * r + .587 * g + .114 * b) / 255; };
   const WHEEL_COL = TEAMS.map(i => i.color);
@@ -2377,14 +2392,16 @@ const Draw = (() => {
         <svg class="pointer" id="ptr" viewBox="0 0 36 48" aria-hidden="true"><path d="M18 46 L3 14 Q18 -4 33 14Z" fill="currentColor"/></svg>
         <button class="hubbtn" id="hubB" aria-label="Spin the wheel">SPIN</button></div>
       <div class="draw-side">
-        <div class="page-h" style="margin:0"><span class="k">Team showcase · live draw</span><h1>Let’s begin the pitch</h1><p>Spin the wheel to decide which team goes first. The wheel picks every team at random, and each team then pitches its idea in the time it has been given. One spin, one team, until all ${N} have taken the board.</p></div>
+        <div class="page-h" style="margin:0"><span class="k">Team showcase · live draw</span><h1>Let’s begin the pitch</h1><p>Spin the wheel to decide which team goes first. The wheel picks every team at random, and each team then pitches its idea in the time it has been given. The pitches run in two sessions, so choose the session first. One spin, one team, until every team in that session has taken the board.</p></div>
         <div class="dprog" id="dprog" aria-live="polite"></div>
         <div class="dots" id="dots" role="list"></div>
+        <div class="sess"><span class="sl">Pitch session</span><div class="seg" role="group" aria-label="Pitch session"><button id="se0">Session 1</button><button id="se1">Session 2</button></div><div class="sess-teams" id="sessT"></div></div>
         <div class="draw-ctl"><button class="btn solid" id="dMain">Spin</button></div>
         <div class="draw-ctl"><button class="btn sm ghost" id="dP">${ico("l").replace("<svg", "<svg width=14 height=14 fill=none stroke=currentColor stroke-width=2")} Previous team</button><button class="btn sm ghost" id="dN">Next team ${ico("r").replace("<svg", "<svg width=14 height=14 fill=none stroke=currentColor stroke-width=2")}</button><button class="btn sm" id="dA">Reveal all teams</button><button class="btn sm ghost" id="dRe">Replay draw</button></div>
       </div></div>`;
     cv = $("#whl"); cx = cv.getContext("2d");
     $("#hubB").onclick = $("#dMain").onclick = primary;
+    $("#se0").onclick = () => setSession(0); $("#se1").onclick = () => setSession(1);
     $("#dP").onclick = () => browse(-1); $("#dN").onclick = () => browse(1); $("#dA").onclick = revealAll; $("#dRe").onclick = replay;
     new ResizeObserver(size).observe($(".wheel-wrap")); mounted = true; ui(); size();
   }
@@ -2396,20 +2413,20 @@ const Draw = (() => {
     for (let k = 0; k < 24; k++) { const a = k / 24 * TAU + D.angle * Math.PI / 180 * .0; cx.beginPath(); cx.arc(c + Math.cos(a) * R * .943, c + Math.sin(a) * R * .943, s * .0075, 0, TAU); cx.fillStyle = k % 2 ? "#f6dc9a" : "#fff"; cx.globalAlpha = .9; cx.fill(); cx.globalAlpha = 1; }
     const rot = (D.angle - 90) * Math.PI / 180, sl = SLOT * Math.PI / 180;
     for (let i = 0; i < N; i++) {
-      const a0 = rot + i * sl, a1 = a0 + sl, it = TEAMS[i], covered = D.drawn.includes(it.team), hl = D.hl === i;
+      const a0 = rot + i * sl, a1 = a0 + sl, it = TEAMS[i], covered = D.drawn.includes(it.team), inS = S().includes(it.team), hl = D.hl === i;
       cx.beginPath(); cx.moveTo(c, c); cx.arc(c, c, ringIn, a0, a1); cx.closePath(); cx.fillStyle = WHEEL_COL[i]; cx.fill();
       cx.lineWidth = s * .003; cx.strokeStyle = "#0a0615"; cx.stroke();
-      if (covered) { cx.fillStyle = "rgba(5,3,9,.62)"; cx.fill(); }
+      if (covered) { cx.fillStyle = "rgba(5,3,9,.62)"; cx.fill(); } else if (!inS) { cx.fillStyle = "rgba(5,3,9,.5)"; cx.fill(); }
       if (hl) { const p = .5 + .5 * Math.sin(performance.now() / 120); cx.fillStyle = `rgba(255,255,255,${.12 + .22 * p})`; cx.fill(); cx.lineWidth = s * .008; cx.strokeStyle = "#fff3cf"; cx.stroke(); }
       cx.save(); cx.translate(c, c); cx.rotate(a0 + sl / 2); cx.textAlign = "right"; cx.textBaseline = "middle";
       let fs = s * .036; cx.font = `800 ${fs}px Manrope, "Segoe UI", system-ui, sans-serif`;
       const maxW = ringIn - hubR * 1.25 - s * .03, w = cx.measureText(it.name).width; if (w > maxW) { fs *= maxW / w; cx.font = `800 ${fs}px Manrope, "Segoe UI", system-ui, sans-serif`; }
-      cx.fillStyle = covered ? "rgba(255,255,255,.45)" : (lum(it.color) > .6 ? "#120a26" : "#fff"); cx.fillText(it.name, ringIn - s * .03, 0); cx.restore();
+      cx.fillStyle = covered ? "rgba(255,255,255,.45)" : !inS ? "rgba(255,255,255,.62)" : (lum(it.color) > .6 ? "#120a26" : "#fff"); cx.fillText(it.name, ringIn - s * .03, 0); cx.restore();
     }
     cx.beginPath(); cx.arc(c, c, hubR * 1.18, 0, TAU); cx.fillStyle = "#0a0615"; cx.fill();
   }
   const next = () => {
-    const left = TEAMS.map(i => i.team).filter(t => !D.drawn.includes(t)); if (!left.length) return null;
+    const left = S().filter(t => !D.drawn.includes(t)); if (!left.length) return null;
     return left[Math.floor(Math.random() * left.length)];
   };
   function spin(target) {
@@ -2430,13 +2447,13 @@ const Draw = (() => {
   function primary() {
     if (D.phase === "spinning") return;
     if (D.phase === "landed") return reveal();
-    const t = next(); if (!t) { toast(`All ${N} teams are covered. Replay the draw to start again.`); return; }
+    const t = next(); if (!t) { toast(`Session ${D.session + 1} is complete. ${SESSIONS.length > 1 ? "Switch session to continue, or replay this one." : ""}`); return; }
     spin(t);
   }
   function reveal() {
     const t = D.pending; if (!D.drawn.includes(t)) D.drawn.push(t);
     D.phase = "idle"; D.pending = null; D.hl = null; draw(); ui(); Sound.sfx("reveal");
-    Showcase.open(t, { draw: true, list: [...D.drawn], boardReveal: true });
+    Showcase.open(t, { draw: true, list: sd(), rail: S(), boardReveal: true });
   }
   function boardReveal() {
     const r = $("#reveal"); if (!r.firstChild) { const g = document.createElement("div"); g.className = "rv-grid"; for (let i = 0; i < 64; i++) { const c = document.createElement("i"); c.style.setProperty("--d", (((i % 8) + Math.floor(i / 8)) * 55 + rnd(0, 120)) + "ms"); g.appendChild(c); } r.appendChild(g); }
@@ -2445,32 +2462,39 @@ const Draw = (() => {
     setTimeout(() => g.classList.add("gone"), 380); setTimeout(() => r.classList.remove("open"), 1700); Sound.sfx("whoosh");
   }
   function browse(d) {
-    if (!D.drawn.length) { toast("Spin the wheel first. Teams you reveal appear here."); return; }
-    const cur = Showcase.current(), i = D.drawn.indexOf(cur), n = D.drawn.length, idx = i < 0 ? n - 1 : (i + d + n) % n;
-    Showcase.open(D.drawn[idx], { draw: true, list: [...D.drawn] });
+    const L = sd(); if (!L.length) { toast("Spin the wheel first. Teams you reveal appear here."); return; }
+    const cur = Showcase.current(), i = L.indexOf(cur), n = L.length, idx = i < 0 ? n - 1 : (i + d + n) % n;
+    Showcase.open(L[idx], { draw: true, list: [...L], rail: S() });
   }
   function revealAll() {
     if (D.phase === "spinning") return;
     let t; while ((t = next())) D.drawn.push(t); D.phase = "idle"; D.pending = null; D.hl = null; draw(); ui();
-    const g = $("#allgrid");
-    g.innerHTML = `<div class="page-h"><span class="k">All ${N} teams revealed</span><h1>The full draw</h1></div><div class="hlist" style="margin-bottom:18px"><button class="btn sm ghost" id="agX">Back to the wheel</button><button class="btn sm" id="agRe">Replay draw</button></div>
-      <div class="cards">${D.drawn.map((tn, k) => { const i = byTeam(tn); return `<button class="card" style="--c:${i.color}" data-t="${tn}"><div class="pcw">${pc(i.piece)}</div><div><div class="tn">Reveal ${pad(k + 1)} · Team ${pad(tn)}</div><h3>${i.name}</h3><div class="tg2">${i.tagline}</div></div><div></div><div style="display:grid;gap:12px"><span class="st">${i.stageText}</span><div class="stack">${i.members.slice(0, 5).map(avatar).join("")}<em>${i.members.length} member${i.members.length > 1 ? "s" : ""}</em></div></div></button>`; }).join("")}</div>`;
+    const L = sd(), g = $("#allgrid");
+    g.innerHTML = `<div class="page-h"><span class="k">Session ${D.session + 1} · all ${L.length} teams revealed</span><h1>The full draw</h1></div><div class="hlist" style="margin-bottom:18px"><button class="btn sm ghost" id="agX">Back to the wheel</button><button class="btn sm" id="agRe">Replay this session</button></div>
+      <div class="cards">${L.map((tn, k) => { const i = byTeam(tn); return `<button class="card" style="--c:${i.color}" data-t="${tn}"><div class="cd-top"><span class="tn">Reveal ${pad(k + 1)} · Team ${pad(tn)}</span>${pcm(i.piece, i.color, "cpc")}</div><h3>${i.name}</h3><div class="tg2">${i.tagline}</div><span class="st">${i.stageText}</span><div class="mem-row">${i.members.map(avatar).join("")}</div></button>`; }).join("")}</div>`;
     g.classList.add("open"); Sound.sfx("fanfare");
     $("#agX").onclick = () => g.classList.remove("open"); $("#agRe").onclick = () => { g.classList.remove("open"); replay(); };
-    $$(".card", g).forEach(b => b.onclick = () => Showcase.open(+b.dataset.t, { draw: true, list: [...D.drawn] }));
+    $$(".card", g).forEach(b => b.onclick = () => Showcase.open(+b.dataset.t, { draw: true, list: [...L], rail: S() }));
   }
-  function replay() { if (D.phase === "spinning") return; D.drawn = []; D.phase = "idle"; D.pending = null; D.hl = null; draw(); ui(); Sound.sfx("whoosh"); toast("Draw reset. Spin to begin."); }
+  function replay() { if (D.phase === "spinning") return; D.drawn = D.drawn.filter(t => !S().includes(t)); D.phase = "idle"; D.pending = null; D.hl = null; draw(); ui(); Sound.sfx("whoosh"); toast(`Session ${D.session + 1} reset. Spin to begin.`); }
+  function setSession(i) {
+    if (D.phase !== "idle") { toast("Finish this spin first, then switch session."); return; }
+    if (i === D.session) return; D.session = i; D.hl = null; draw(); ui(); Sound.sfx("select");
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // so Space spins again
+  }
   function ui() {
-    if (!mounted) return; const n = D.drawn.length, last = n ? byTeam(D.drawn[n - 1]) : null;
-    const lbl = D.phase === "landed" ? "Reveal team" : D.phase === "spinning" ? "Spinning…" : n === N ? `All ${N} covered` : "Spin";
-    $("#dMain").textContent = lbl; $("#dMain").disabled = D.phase === "spinning" || (n === N && D.phase === "idle");
-    const hb = $("#hubB"); hb.textContent = D.phase === "landed" ? "REVEAL" : D.phase === "spinning" ? "…" : n === N ? "DONE" : "SPIN"; hb.disabled = D.phase === "spinning" || (n === N && D.phase === "idle");
-    $("#dprog").innerHTML = n ? `Team ${pad(n)} of ${N} revealed.<small>${n === N ? `All ${N} covered. Browse the teams or replay the draw.` : D.phase === "landed" ? "The wheel has stopped. Reveal the team." : `Last revealed: ${last.name}. Spin ${n + 1} of ${N} is next.`}</small>` : `Spin 1 of ${N}.<small>${D.phase === "landed" ? "The wheel has stopped. Reveal the team." : "Press spin to start the draw. No teams revealed yet."}</small>`;
-    $("#dots").innerHTML = TEAMS.map(i => { const d = D.drawn.includes(i.team); return `<button class="dot ${d ? "done" : ""} ${last && last.team === i.team ? "cur" : ""}" style="--c:${i.color}" data-t="${i.team}" ${d ? "" : "disabled"} role="listitem" aria-label="Team ${i.team}: ${d ? i.name : "not yet revealed"}" title="${d ? i.name : "Not yet revealed"}">${pad(i.team)}</button>`; }).join("");
-    $$(".dot.done").forEach(b => b.onclick = () => Showcase.open(+b.dataset.t, { draw: true, list: [...D.drawn] }));
+    if (!mounted) return; const L = sd(), n = L.length, size = S().length, last = n ? byTeam(L[n - 1]) : null, fin = sdone(), other = D.session ? 0 : 1;
+    const lbl = D.phase === "landed" ? "Reveal team" : D.phase === "spinning" ? "Spinning…" : fin ? `Session ${D.session + 1} complete` : "Spin";
+    $("#dMain").textContent = lbl; $("#dMain").disabled = D.phase === "spinning" || (fin && D.phase === "idle");
+    const hb = $("#hubB"); hb.textContent = D.phase === "landed" ? "REVEAL" : D.phase === "spinning" ? "…" : fin ? "DONE" : "SPIN"; hb.disabled = D.phase === "spinning" || (fin && D.phase === "idle");
+    SESSIONS.forEach((_, k) => { const b = $("#se" + k); b.classList.toggle("on", k === D.session); b.setAttribute("aria-pressed", k === D.session); b.disabled = D.phase !== "idle" && k !== D.session; b.classList.toggle("nudge", fin && D.phase === "idle" && k === other && drawnIn(k).length < SESSIONS[k].length); });
+    $("#sessT").textContent = S().map(t => byTeam(t).name).join(" · ");
+    $("#dprog").innerHTML = n ? `Team ${pad(n)} of ${size} revealed.<small>Session ${D.session + 1} · ${fin ? `All ${size} covered. ${SESSIONS.length > 1 ? `Switch to Session ${other + 1} to continue, or browse and replay.` : "Browse the teams or replay."}` : D.phase === "landed" ? "The wheel has stopped. Reveal the team." : `Last revealed: ${last.name}. Spin ${n + 1} of ${size} is next.`}</small>` : `Spin 1 of ${size}.<small>Session ${D.session + 1} · ${D.phase === "landed" ? "The wheel has stopped. Reveal the team." : "Press spin to start. No teams revealed yet."}</small>`;
+    $("#dots").innerHTML = TEAMS.map(i => { const d = D.drawn.includes(i.team), inS = S().includes(i.team); return `<button class="dot ${d ? "done" : ""} ${inS ? "" : "off"} ${last && last.team === i.team ? "cur" : ""}" style="--c:${i.color}" data-t="${i.team}" ${d ? "" : "disabled"} role="listitem" aria-label="Team ${i.team}, session ${sessionOf(i.team) + 1}: ${d ? i.name : "not yet revealed"}" title="${d ? i.name : "Session " + (sessionOf(i.team) + 1) + " · not yet revealed"}">${pad(i.team)}</button>`; }).join("");
+    $$(".dot.done").forEach(b => b.onclick = () => { const si = sessionOf(+b.dataset.t); Showcase.open(+b.dataset.t, { draw: true, list: drawnIn(si), rail: SESSIONS[si] }); });
     $("#dP").disabled = $("#dN").disabled = !n;
   }
-  return { mount, enter() { setTimeout(size, 50); ui(); }, leave() { cancelAnimationFrame(hlT); }, primary, browse, revealAll, replay, boardReveal, done: () => D.drawn.length === N, afterReveal() { if (D.drawn.length < N) setTimeout(() => primary(), 450); else toast(`All ${N} teams are covered.`); }, canvasRedraw: draw };
+  return { mount, enter() { setTimeout(size, 50); ui(); }, leave() { cancelAnimationFrame(hlT); }, primary, browse, revealAll, replay, boardReveal, done: sdone, afterReveal() { if (!sdone()) setTimeout(() => primary(), 450); else toast(`Session ${D.session + 1} is complete.${SESSIONS.length > 1 ? " Switch session to continue." : ""}`); }, canvasRedraw: draw };
 })();
 registerView("teams", Draw);
 
