@@ -901,6 +901,9 @@ select.chip option { background: #150b2c; color: #f3eefc; }
 
 .stc-head .hlist { position: relative; z-index: 8; }
 
+.kbhint { font-size: 12px; color: var(--mute); margin: 2px 0 8px 30px; }
+.kbhint kbd { min-width: 22px; padding: 2px 7px; font-size: 11.5px; }
+
 </style>
 </head>
 <body>
@@ -921,7 +924,7 @@ select.chip option { background: #150b2c; color: #f3eefc; }
 <div id="allgrid" role="dialog" aria-label="All teams"></div>
 <div class="modal" id="profile" role="dialog" aria-modal="true" aria-label="Builder profile"><div class="mc"><button class="ib x" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button><div class="body"></div></div></div>
 <div class="modal" id="keys" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div class="mc notes-c" style="width:min(520px,100%)"><button class="ib x" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button><h2>Keyboard shortcuts</h2>
-<div class="keys"><kbd>F</kbd><span>Toggle fullscreen</span><kbd>M</kbd><span>Sound on / off</span><kbd>Esc</kbd><span>Close a panel or the full-screen view</span><kbd>← →</kbd><span>Previous / next idea or revealed team</span><kbd>Space</kbd><span>Play the next reveal: skip intro, replay the tour, next SDLC move, spin the wheel</span><kbd>S</kbd><span>Spotlight mode inside a showcase</span><kbd>P</kbd><span>Presentation mode (hide the toolbar)</span><kbd>?</kbd><span>This list</span></div></div></div>
+<div class="keys"><kbd>F</kbd><span>Toggle fullscreen</span><kbd>M</kbd><span>Sound on / off</span><kbd>U</kbd><span>Volume up</span><kbd>L</kbd><span>Volume lower</span><kbd>Esc</kbd><span>Close a panel or the full-screen view</span><kbd>← →</kbd><span>Previous / next idea or revealed team</span><kbd>Space</kbd><span>Play the next reveal: skip intro, replay the tour, next SDLC move, spin the wheel</span><kbd>S</kbd><span>Spotlight mode inside a showcase</span><kbd>P</kbd><span>Presentation mode (hide the toolbar)</span><kbd>?</kbd><span>This list</span></div></div></div>
 <div id="wipe" aria-hidden="true"></div>
 <div id="copy">Copyright © 2026 Accenture. All rights reserved.</div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1595,6 +1598,7 @@ function buildSoundPanel() {
     <div class="sw"><div>Background music<small>Fades in and out smoothly</small></div><button class="tg" role="switch" data-tg="music" aria-label="Background music"></button></div>
     <div class="tracks" role="radiogroup" aria-label="Music selection">${Sound.TRACKS.map(t => `<button class="trk" role="radio" data-id="${t.id}"><span class="eq"><i></i><i></i><i></i></span><div><b>${t.name}</b><span>${t.mood}</span></div></button>`).join("")}</div>
     <div class="vol"><svg viewBox="0 0 24 24">${ICON.vol}</svg><input id="vol" type="range" min="0" max="100" aria-label="Volume"></div>
+    <div class="kbhint"><kbd>U</kbd> volume up · <kbd>L</kbd> volume lower · <kbd>M</kbd> mute</div>
     <div class="sw"><div>Clock ticking sound<small>Optional, very quiet</small></div><button class="tg" role="switch" data-tg="clock" aria-label="Chess clock ticking"></button></div>
     <div class="sw"><div>Hall ambience<small>Soft room tone</small></div><button class="tg" role="switch" data-tg="amb" aria-label="Ambient sound"></button></div>
     <p class="sound-note">Music and sound effects are licensed to Accenture. Copyrights belong to Accenture. Sound never starts without your click.</p>`;
@@ -2304,6 +2308,10 @@ addEventListener("keydown", e => {
   if (k === "f" || k === "F") { e.preventDefault(); FS.toggle(); return; }
   if (k === "m" || k === "M") { Sound.toggle().then(() => toast(Sound.state.on ? "Sound on" : "Sound off")); return; }
   if (k === "?" ) { openModal("#keys"); return; }
+  if (k === "u" || k === "U" || k === "l" || k === "L") {   // volume: U up, L lower
+    const v = Math.max(0, Math.min(1, Math.round((Sound.state.vol + (k === "u" || k === "U" ? 0.1 : -0.1)) * 100) / 100));
+    Sound.set("vol", v); toast(`Volume ${Math.round(v * 100)}%${Sound.state.on ? "" : " · sound is off, press M to turn it on"}`); return;
+  }
   if (!Auth.ok) { if (k === " " && curRoute === "home" && !onBtn) { e.preventDefault(); Landing.skip(); } return; }
   if (k === "p" || k === "P") { togglePresent(); return; }
   if ((k === "s" || k === "S") && Showcase.isOpen()) { Showcase.toggleSpot(); return; }
