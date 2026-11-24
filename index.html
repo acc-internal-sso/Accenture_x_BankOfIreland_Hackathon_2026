@@ -1061,8 +1061,8 @@ const CONFIG = {
 
   /* Pitch sessions for the live draw: the wheel shows every team, but each session only lands on its own. */
   pitchSessions: [[1, 5, 3, 4], [2, 6, 7]],
-  /* The team that always comes up first in each session (null = fully random). Session 1 opens with Gambit Master. */
-  pitchFirst: [1, null],
+  /* The team that always comes up first in each session (null = fully random). Session 1 opens with Gambit Master, Session 2 with Bishop's Eye. */
+  pitchFirst: [1, 7],
 
   /* The event execution team. Not an idea team, so it is left out of the
      ideas, the wall and the pitch draw. Shown on the Builders page only.     */
@@ -2037,10 +2037,10 @@ const Builders = (() => {
       }
       const C = CONFIG.support, L = CONFIG.council;
       $("#tkN").textContent = "★"; $("#tkT").textContent = C.name; $("#tkP").style.width = (teams.length + 1) / total * 100 + "%";
-      await spot(my, C, 9000, 3600);
+      await spot(my, C, 6000, 2400);
       await wait(my, 2000);      // two-second hold on The Checkmate Crew   // slower, like the Strategic Council
       $("#tkN").textContent = "♚"; $("#tkT").textContent = L.name; $("#tkP").style.width = "100%";
-      await spot(my, L, 9000, 3600);
+      await spot(my, L, 6000, 2400);
       await wait(my, 2000);      // two-second hold on The Strategic Council before the black-and-white board   // the last team: a little slower, so each leader is seen
       if (my !== tok) return;
       finalState(); Sound.sfx("success");
