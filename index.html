@@ -911,6 +911,13 @@ select.chip option { background: #150b2c; color: #f3eefc; }
 .sc-mem.big .mem span b { display: block; font-weight: 700; color: #fff; font-size: clamp(12px, 1.05vw, 16px); }
 .sc-mem.big .mem span i { display: block; font-style: normal; color: #cfc6e8; font-size: clamp(11px, .95vw, 14px); }
 
+/* completed ideas (green theme) */
+.card.done { background: linear-gradient(160deg, color-mix(in srgb, #1fcf95 20%, #0c1a18), #08120f 70%); box-shadow: inset 0 0 0 1.5px rgba(31, 207, 149, .65); }
+.card.done::before { background: radial-gradient(240px 160px at 90% 0%, rgba(31, 207, 149, .3), transparent 70%); }
+.card .tn .dn { display: inline-block; margin-left: 10px; padding: 3px 9px; border-radius: 99px; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #07110e; background: #1fcf95; }
+.gl.done::after { content: "✓"; position: absolute; top: -4px; right: 2px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #07110e; background: #1fcf95; }
+.gl { position: relative; }
+
 </style>
 </head>
 <body>
@@ -1068,6 +1075,8 @@ const CONFIG = {
 
   /* Pitch sessions for the live draw: the wheel shows every team, but each session only lands on its own. */
   pitchSessions: [[1, 5, 3, 4], [2, 6, 7]],
+  /* Sessions that have finished. Their teams get the green "completed" theme on The 7 Ideas page. Add 1 here once Session 2 is done. */
+  pitchDone: [0],
   /* The team that always comes up first in each session (null = fully random). Session 1 opens with Gambit Master, Session 2 with Bishop's Eye. */
   pitchFirst: [1, null],
   /* A fixed order for a session (null = random). The wheel still spins, but lands on these teams in this sequence. Session 2: Hoax the Code, Bishop's Eye, Node Navigators. */
@@ -2102,8 +2111,11 @@ registerView("builders", Builders);
    THE 11 IDEAS — hall: search, filter, overview, grid
    ========================================================================== */
 const Hall = (() => {
+  const GREEN = "#1fcf95";
+  const DONE = new Map(); (CONFIG.pitchDone || []).forEach(si => (CONFIG.pitchSessions[si] || []).forEach(t => DONE.set(t, si + 1)));   // team -> session number
+  const tc = i => DONE.has(i.team) ? GREEN : i.color;
   const st = { q: "", stage: "all", team: "all" };
-  const CATS = [["all", "All"], ["Design", "Design"], ["Build", "Build"], ["Test", "Test"], ["DevOps", "DevOps"], ["EDL", "EDL"], ["end", "End-to-end"], ["enab", "People · Skills · Capacity"]];
+  const CATS = [["all", "All"], ["Design", "Design"], ["Build", "Build"], ["Test", "Test"], ["DevOps", "DevOps"], ["EDL", "EDL"], ["end", "End-to-end"]];
   const cat = it => it.stage === "all" ? "end" : it.stage === "enabler" ? "enab" : CONFIG.stages.find(s => s.id === it.stage).phase;
   const hay = it => (it.name + " " + it.tagline + " " + it.desc + " " + it.stageText + " " + it.motif + " " + it.members.map(m => m.n).join(" ")).toLowerCase();
   const match = it => (st.stage === "all" || cat(it) === st.stage) && (st.team === "all" || +st.team === it.team) && (!st.q || hay(it).includes(st.q.toLowerCase()));
@@ -2119,7 +2131,7 @@ const Hall = (() => {
     $("#hq").oninput = e => { st.q = e.target.value; render(); };
     $$("#hChips .chip").forEach(c => c.onclick = () => { st.stage = c.dataset.s; $$("#hChips .chip").forEach(x => x.classList.toggle("on", x === c)); render(); Sound.sfx("select"); });
     $("#hTeam").onchange = e => { st.team = e.target.value; render(); Sound.sfx("select"); };
-    $("#glance").innerHTML = IDEAS.map(i => `<button class="gl" role="listitem" style="--c:${i.color}" data-t="${i.team}" aria-label="${i.name}">${pcm(i.piece, i.color)}<span>${i.name}</span></button>`).join("");
+    $("#glance").innerHTML = IDEAS.map(i => `<button class="gl ${DONE.has(i.team) ? "done" : ""}" role="listitem" style="--c:${tc(i)}" data-t="${i.team}" aria-label="${i.name}${DONE.has(i.team) ? ", session " + DONE.get(i.team) + " completed" : ""}">${pcm(i.piece, tc(i))}<span>${i.name}</span></button>`).join("");
     $$(".gl").forEach(g => g.onclick = e => Showcase.open(+g.dataset.t, { origin: { x: e.clientX, y: e.clientY } }));
     render();
   }
@@ -2128,8 +2140,8 @@ const Hall = (() => {
     $$(".gl").forEach(g => g.classList.toggle("off", !set.has(+g.dataset.t)));
     const c = $("#cards");
     if (!ok.length) { c.innerHTML = `<div class="empty" style="grid-column:1/-1"><h3 class="disp" style="font-size:28px">No idea matches that move.</h3><p>Try fewer words, or clear the filters.</p><button class="btn sm" id="hClear">Clear filters</button></div>`; $("#hClear").onclick = () => { st.q = ""; st.stage = "all"; st.team = "all"; $("#hq").value = ""; $("#hTeam").value = "all"; $$("#hChips .chip").forEach(x => x.classList.toggle("on", x.dataset.s === "all")); render(); }; return; }
-    c.innerHTML = ok.map(i => `<button class="card" style="--c:${i.color}" data-t="${i.team}" aria-label="Open ${i.name}">
-      <div class="cd-top"><span class="tn">Team ${pad(i.team)}</span>${pcm(i.piece, i.color, "cpc")}</div>
+    c.innerHTML = ok.map(i => `<button class="card ${DONE.has(i.team) ? "done" : ""}" style="--c:${tc(i)}" data-t="${i.team}" aria-label="Open ${i.name}${DONE.has(i.team) ? ", session " + DONE.get(i.team) + " completed" : ""}">
+      <div class="cd-top"><span class="tn">Team ${pad(i.team)}${DONE.has(i.team) ? `<em class="dn">✓ Session ${DONE.get(i.team)} completed</em>` : ""}</span>${pcm(i.piece, tc(i), "cpc")}</div>
       <h3>${i.name}</h3><div class="tg2">${i.tagline}</div><p class="cd-d">${i.desc}</p>
       <span class="st">${i.stageText}</span>
       <div class="mem-row" aria-label="${i.members.length} members">${i.members.map(avatar).join("")}</div></button>`).join("");
